@@ -11,7 +11,7 @@ Key Features
 ✔️ High Compatibility across various Linux distributions
 ✔️ Auto-Refresh & Optimized for SSH/Tmux Usage
 
-git clone https://github.com/siatrial/x1stats/blob/474921918a804432d44ed0c3002a10611983c4b1/x1stats
+git clone https://github.com/siatrial/x1stats.git
 
 cd x1stats
 
