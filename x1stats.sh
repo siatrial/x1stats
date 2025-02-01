@@ -42,7 +42,6 @@ system_stats_monitor() {
         rx_old=$rx_new
         tx_old=$tx_new
         
-        # Format network speed
         if command -v numfmt &>/dev/null; then
             rx=$(numfmt --to=iec-i --suffix=B/s $rx_speed 2>/dev/null || echo "${rx_speed}B/s")
             tx=$(numfmt --to=iec-i --suffix=B/s $tx_speed 2>/dev/null || echo "${tx_speed}B/s")
@@ -57,16 +56,20 @@ system_stats_monitor() {
         # ──────────────────────────────────────────────────────────
         read -r total used _ <<< "$(free -b | awk '/Mem:/ {print $2,$3}')"
         mem_percent=$(( total > 0 ? (used * 100) / total : 0 ))
-        used_gb=$(echo "scale=1; $used/1073741824" | bc 2>/dev/null || echo "N/A")
-        total_gb=$(echo "scale=1; $total/1073741824" | bc 2>/dev/null || echo "N/A")
 
-        # Build ASCII memory bar using "|" and "-"
+        if command -v bc &>/dev/null; then
+            used_gb=$(echo "scale=1; $used/1073741824" | bc 2>/dev/null || echo "N/A")
+            total_gb=$(echo "scale=1; $total/1073741824" | bc 2>/dev/null || echo "N/A")
+        else
+            used_gb="$((used / 1073741824))"
+            total_gb="$((total / 1073741824))"
+        fi
+
         filled=$((mem_percent / 5))
         empty=$((20 - filled))
-        mem_bar=$(printf "%${filled}s" | sed "s/ /|/g")
+        mem_bar=$(printf "%${filled}s" | sed "s/ /█/g")
         mem_bar+=$(printf "%${empty}s" | sed "s/ /-/g")
 
-        # Memory color based on usage
         if ((mem_percent >= 90)); then
             mem_color="31"
         elif ((mem_percent >= 70)); then
@@ -80,9 +83,9 @@ system_stats_monitor() {
         echo -e "=============================================================="
 
         # ──────────────────────────────────────────────────────────
-        ledger_path="/X1/ledger"  # Default assumed path
-        if [[ -d "$ledger_path" && -x "$(command -v tachyon-validator)" ]]; then
-            validator_data=$(timeout 3 tachyon-validator --ledger "$ledger_path" monitor 2>/dev/null)
+        if command -v tachyon-validator &>/dev/null; then
+            # Use home directory path for ledger
+            validator_data=$(timeout 3 tachyon-validator --ledger "$HOME/x1/ledger" monitor 2>/dev/null)
             current_slot=$(echo "$validator_data" | grep -o "Processed Slot: [0-9]*" | awk '{print $3}' | head -n 1)
 
             if [[ -n "$current_slot" && "$current_slot" -gt 0 ]]; then
@@ -91,7 +94,7 @@ system_stats_monitor() {
                 slot_diff=$((current_slot - last_slot))
 
                 if ((time_diff > 0)); then
-                    blocks_per_sec=$(echo "scale=2; $slot_diff / $time_diff" | bc 2>/dev/null || echo "N/A")
+                    blocks_per_sec=$(echo "scale=2; $slot_diff / ($time_diff + 1)" | bc 2>/dev/null || echo "N/A")
                 else
                     blocks_per_sec=0
                 fi
@@ -108,11 +111,11 @@ system_stats_monitor() {
 
         # ──────────────────────────────────────────────────────────
         echo -e "\n CPU Cores Utilization:"
+
         num_cpus=$(nproc)
         mid=$((num_cpus / 2))  # Split into 2 columns
 
         for i in $(seq 0 $((mid - 1))); do
-            # First column
             read -r cpu user nice system idle rest <<< "$(grep "cpu$i" /proc/stat)"
             curr_total=$((user + nice + system + idle))
             curr_idle=$idle
@@ -122,7 +125,12 @@ system_stats_monitor() {
             prev_total["$i"]=$curr_total
             prev_idle["$i"]=$idle
 
-            # Second column
+            # CPU Bar (3 Horizontal Blocks)
+            cpu_bar="░░░"
+            ((usage >= 5))  && cpu_bar="█░░"
+            ((usage >= 30)) && cpu_bar="██░"
+            ((usage >= 70)) && cpu_bar="███"
+
             j=$((i + mid))
             read -r cpu2 user2 nice2 system2 idle2 rest2 <<< "$(grep "cpu$j" /proc/stat)"
             curr_total2=$((user2 + nice2 + system2 + idle2))
@@ -133,21 +141,17 @@ system_stats_monitor() {
             prev_total["$j"]=$curr_total2
             prev_idle["$j"]=$idle2
 
-            draw_bar() {
-                local usage=$1
-                if ((usage >= 70)); then echo "███"; return; fi
-                if ((usage >= 30)); then echo "██ "; return; fi
-                if ((usage >= 5)); then echo "█  "; return; fi
-                echo "   "  # Empty bar
-            }
+            cpu_bar2="░░░"
+            ((usage2 >= 5))  && cpu_bar2="█░░"
+            ((usage2 >= 30)) && cpu_bar2="██░"
+            ((usage2 >= 70)) && cpu_bar2="███"
 
-            printf " Core %02d: \e[32m%3d%%\e[0m [%s]    Core %02d: \e[32m%3d%%\e[0m [%s]\n" \
-                   "$i" "$usage" "$(draw_bar $usage)" \
-                   "$j" "$usage2" "$(draw_bar $usage2)"
+            printf " Core %02d: \e[32m%-3s\e[0m %3d%%   Core %02d: \e[32m%-3s\e[0m %3d%%\n" "$i" "$cpu_bar" "$usage" "$j" "$cpu_bar2" "$usage2"
         done
 
         echo -e "=============================================================="
-        sleep 0.5
+
+        sleep 1
     done
 }
 
