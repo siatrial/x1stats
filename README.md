@@ -11,13 +11,19 @@ Key Features
 ✔️ High Compatibility across various Linux distributions
 ✔️ Auto-Refresh & Optimized for SSH/Tmux Usage
 
-git clone https://github.com/siatrial/x1stats.git
-
-cd x1stats
-
+# Install dependencies
 sudo apt update && sudo apt install bc coreutils curl iproute2 -y
 
+# Clone the GitHub repository
+git clone https://github.com/siatrial/x1stats.git
+cd x1stats
+
+# Make the script executable
+chmod +x x1stats.sh
+
+# Run the script
 ./x1stats.sh
+
 
 📊 Metrics Displayed
 🔹 System Stats
