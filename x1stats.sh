@@ -101,7 +101,7 @@ system_stats_monitor() {
                 last_slot=$current_slot
                 last_time=$current_time
 
-                printf " X1 Performance: \e[32m%-6s\e[0m Blocks/sec (Slot: %s)\n" "$blocks_per_sec" "$current_slot"
+                printf " X1 Performance Blocks/sec: \e[32m%-6s\e[0m (Slot: %s)\n" "$blocks_per_sec" "$current_slot"
             else
                 echo -e " X1 Performance: \e[90mNo data available\e[0m"
             fi
