@@ -15,6 +15,7 @@ Install dependencies
 sudo apt update && sudo apt install bc coreutils curl iproute2 -y
 
 Clone the GitHub repository
+
 git clone https://github.com/siatrial/x1stats.git
 
 cd x1stats
