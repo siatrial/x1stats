@@ -11,25 +11,6 @@ system_stats_monitor() {
     last_slot=0
     last_time=$(date +%s)
 
-    # Auto-detect ledger directory
-    LEDGER_PATHS=(
-        "/X1/ledger"
-        "$HOME/X1/ledger"
-        "/var/lib/x1/ledger"
-        "/opt/x1/ledger"
-        "/root/X1/ledger"
-    )
-
-    for path in "${LEDGER_PATHS[@]}"; do
-        if [[ -d "$path" ]]; then
-            LEDGER="$path"
-            break
-        fi
-    done
-
-    # Default path if no ledger is found
-    [[ -z "$LEDGER" ]] && LEDGER="./x1/ledger"
-
     # Get initial CPU stats
     for i in $(seq 0 $(($(nproc)-1))); do
         read -r cpu user nice system idle rest <<< "$(grep "cpu$i" /proc/stat)"
@@ -79,18 +60,29 @@ system_stats_monitor() {
         used_gb=$(echo "scale=1; $used/1073741824" | bc 2>/dev/null || echo "N/A")
         total_gb=$(echo "scale=1; $total/1073741824" | bc 2>/dev/null || echo "N/A")
 
-        # Build ASCII memory bar
+        # Build ASCII memory bar using "|" and "-"
         filled=$((mem_percent / 5))
         empty=$((20 - filled))
-        mem_bar=$(printf "%${filled}s" | sed "s/ /█/g")
-        mem_bar+=$(printf "%${empty}s" | sed "s/ /░/g")
+        mem_bar=$(printf "%${filled}s" | sed "s/ /|/g")
+        mem_bar+=$(printf "%${empty}s" | sed "s/ /-/g")
 
-        printf " Mem: %-20s %3d%% (%4.1fG/%4.1fG) \n" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
+        # Memory color based on usage
+        if ((mem_percent >= 90)); then
+            mem_color="31"
+        elif ((mem_percent >= 70)); then
+            mem_color="33"
+        else
+            mem_color="32"
+        fi
+
+        printf " Mem: \e[%sm%-20s\e[0m %3d%% (%4.1fG/%4.1fG) \n" \
+               "$mem_color" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
         echo -e "=============================================================="
 
         # ──────────────────────────────────────────────────────────
-        if command -v tachyon-validator &>/dev/null; then
-            validator_data=$(timeout 3 tachyon-validator --ledger "$LEDGER" monitor 2>/dev/null)
+        ledger_path="/X1/ledger"  # Default assumed path
+        if [[ -d "$ledger_path" && -x "$(command -v tachyon-validator)" ]]; then
+            validator_data=$(timeout 3 tachyon-validator --ledger "$ledger_path" monitor 2>/dev/null)
             current_slot=$(echo "$validator_data" | grep -o "Processed Slot: [0-9]*" | awk '{print $3}' | head -n 1)
 
             if [[ -n "$current_slot" && "$current_slot" -gt 0 ]]; then
@@ -107,16 +99,15 @@ system_stats_monitor() {
                 last_slot=$current_slot
                 last_time=$current_time
 
-                printf " X1 Performance: %-6s Blocks/sec (Slot: %s)\n" "$blocks_per_sec" "$current_slot"
+                printf " X1 Performance: \e[32m%-6s\e[0m Blocks/sec (Slot: %s)\n" "$blocks_per_sec" "$current_slot"
             else
-                echo -e " X1 Performance: No data available"
+                echo -e " X1 Performance: \e[90mNo data available\e[0m"
             fi
             echo -e "=============================================================="
         fi
 
         # ──────────────────────────────────────────────────────────
         echo -e "\n CPU Cores Utilization:"
-
         num_cpus=$(nproc)
         mid=$((num_cpus / 2))  # Split into 2 columns
 
@@ -142,15 +133,20 @@ system_stats_monitor() {
             prev_total["$j"]=$curr_total2
             prev_idle["$j"]=$idle2
 
-            # Build CPU utilization bar
-            cpu_bar1=$(printf "%-${usage}s" | sed "s/ /█/g")
-            cpu_bar2=$(printf "%-${usage2}s" | sed "s/ /█/g")
+            draw_bar() {
+                local usage=$1
+                if ((usage >= 70)); then echo "███"; return; fi
+                if ((usage >= 30)); then echo "██ "; return; fi
+                if ((usage >= 5)); then echo "█  "; return; fi
+                echo "   "  # Empty bar
+            }
 
-            printf " Core %02d: %s %3d%%      Core %02d: %s %3d%%\n" "$i" "$cpu_bar1" "$usage" "$j" "$cpu_bar2" "$usage2"
+            printf " Core %02d: \e[32m%3d%%\e[0m [%s]    Core %02d: \e[32m%3d%%\e[0m [%s]\n" \
+                   "$i" "$usage" "$(draw_bar $usage)" \
+                   "$j" "$usage2" "$(draw_bar $usage2)"
         done
 
         echo -e "=============================================================="
-
         sleep 0.5
     done
 }
