@@ -12,6 +12,7 @@ Key Features
 ✔️ Auto-Refresh & Optimized for SSH/Tmux Usage
 
 git clone https://github.com/siatrial/x1stats/blob/main/x1stats
+
 cd x1stats
 
 sudo apt update && sudo apt install bc coreutils curl iproute2 -y
