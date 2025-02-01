@@ -11,15 +11,24 @@ system_stats_monitor() {
     last_slot=0
     last_time=$(date +%s)
 
-    # Detect best ledger path
-    LEDGER_PATHS=("/X1/ledger" "$HOME/X1/ledger" "/var/lib/x1/ledger")
+    # Auto-detect ledger directory
+    LEDGER_PATHS=(
+        "/X1/ledger"
+        "$HOME/X1/ledger"
+        "/var/lib/x1/ledger"
+        "/opt/x1/ledger"
+        "/root/X1/ledger"
+    )
+
     for path in "${LEDGER_PATHS[@]}"; do
         if [[ -d "$path" ]]; then
-            LEDGER_PATH="$path"
+            LEDGER="$path"
             break
         fi
     done
-    [[ -z "$LEDGER_PATH" ]] && LEDGER_PATH="NOT_FOUND"
+
+    # Default path if no ledger is found
+    [[ -z "$LEDGER" ]] && LEDGER="./x1/ledger"
 
     # Get initial CPU stats
     for i in $(seq 0 $(($(nproc)-1))); do
@@ -74,24 +83,14 @@ system_stats_monitor() {
         filled=$((mem_percent / 5))
         empty=$((20 - filled))
         mem_bar=$(printf "%${filled}s" | sed "s/ /█/g")
-        mem_bar+=$(printf "%${empty}s" | sed "s/ /-/g")
+        mem_bar+=$(printf "%${empty}s" | sed "s/ /░/g")
 
-        # Memory color based on usage
-        if ((mem_percent >= 90)); then
-            mem_color="31"
-        elif ((mem_percent >= 70)); then
-            mem_color="33"
-        else
-            mem_color="32"
-        fi
-
-        printf " Mem: \e[%sm%-20s\e[0m %3d%% (%4.1fG/%4.1fG) \n" \
-               "$mem_color" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
+        printf " Mem: %-20s %3d%% (%4.1fG/%4.1fG) \n" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
         echo -e "=============================================================="
 
         # ──────────────────────────────────────────────────────────
-        if [[ "$LEDGER_PATH" != "NOT_FOUND" && -x "$(command -v tachyon-validator)" ]]; then
-            validator_data=$(timeout 3 tachyon-validator --ledger "$LEDGER_PATH" monitor 2>/dev/null)
+        if command -v tachyon-validator &>/dev/null; then
+            validator_data=$(timeout 3 tachyon-validator --ledger "$LEDGER" monitor 2>/dev/null)
             current_slot=$(echo "$validator_data" | grep -o "Processed Slot: [0-9]*" | awk '{print $3}' | head -n 1)
 
             if [[ -n "$current_slot" && "$current_slot" -gt 0 ]]; then
@@ -108,13 +107,10 @@ system_stats_monitor() {
                 last_slot=$current_slot
                 last_time=$current_time
 
-                printf " X1 Performance: \e[32m%-6s\e[0m Blocks/sec (Slot: %s)\n" "$blocks_per_sec" "$current_slot"
+                printf " X1 Performance: %-6s Blocks/sec (Slot: %s)\n" "$blocks_per_sec" "$current_slot"
             else
-                echo -e " X1 Performance: \e[90mNo data available\e[0m"
+                echo -e " X1 Performance: No data available"
             fi
-            echo -e "=============================================================="
-        else
-            echo -e " X1 Performance: \e[90mNo data available\e[0m"
             echo -e "=============================================================="
         fi
 
@@ -146,15 +142,11 @@ system_stats_monitor() {
             prev_total["$j"]=$curr_total2
             prev_idle["$j"]=$idle2
 
-            # Build CPU bar (3-block system)
-            bar1=" " bar2=" " bar3=" "
-            [[ $usage -ge 5  ]] && bar1="▆"
-            [[ $usage -ge 30 ]] && bar2="▆"
-            [[ $usage -ge 70 ]] && bar3="▆"
+            # Build CPU utilization bar
+            cpu_bar1=$(printf "%-${usage}s" | sed "s/ /█/g")
+            cpu_bar2=$(printf "%-${usage2}s" | sed "s/ /█/g")
 
-            printf " Core %02d: %s%s%s %3d%%    Core %02d: %s%s%s %3d%%\n" \
-                   "$i" "$bar1" "$bar2" "$bar3" "$usage" \
-                   "$j" "$bar1" "$bar2" "$bar3" "$usage2"
+            printf " Core %02d: %s %3d%%      Core %02d: %s %3d%%\n" "$i" "$cpu_bar1" "$usage" "$j" "$cpu_bar2" "$usage2"
         done
 
         echo -e "=============================================================="
