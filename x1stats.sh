@@ -126,8 +126,10 @@ system_stats_monitor() {
 
             # CPU Bar (3 Levels: |.., ||., |||)
             cpu_bar="|.."
-            ((usage >= 30)) && cpu_bar="||."
-            ((usage >= 70)) && cpu_bar="|||"
+            ((usage >= 5))  && cpu_bar="..."
+            ((usage >= 30)) && cpu_bar="|.."
+            ((usage >= 70)) && cpu_bar="||."
+            ((usage >= 90)) && cpu_bar="|||"
 
             j=$((i + mid))
             read -r cpu2 user2 nice2 system2 idle2 rest2 <<< "$(grep "cpu$j" /proc/stat)"
@@ -140,8 +142,10 @@ system_stats_monitor() {
             prev_idle["$j"]=$idle2
 
             cpu_bar2="|.."
-            ((usage2 >= 30)) && cpu_bar2="||."
-            ((usage2 >= 70)) && cpu_bar2="|||"
+            ((usage2 >= 5))  && cpu_bar2="..."
+            ((usage2 >= 30)) && cpu_bar2="|.."
+            ((usage2 >= 70)) && cpu_bar2="||."
+            ((usage2 >= 90)) && cpu_bar2="|||"
 
             printf " Core %02d: \e[32m%-3s\e[0m %3d%%   Core %02d: \e[32m%-3s\e[0m %3d%%\n" "$i" "$cpu_bar" "$usage" "$j" "$cpu_bar2" "$usage2"
         done
