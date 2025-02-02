@@ -9,6 +9,7 @@ system_stats_monitor() {
     declare -A prev_total prev_idle
     frame=0
     last_slot=0
+    last_tx_count=0
     last_time=$(date +%s)
 
     # Get initial CPU stats
@@ -65,10 +66,10 @@ system_stats_monitor() {
             total_gb="$((total / 1073741824))"
         fi
 
-        # Memory Bar (3 Levels: |.., ||., |||)
+        # Memory Bar (|.., ||., |||)
         mem_bar="|.."
-        ((mem_percent >= 30)) && mem_bar="||."
-        ((mem_percent >= 70)) && mem_bar="|||"
+        ((mem_percent >= 5))  && mem_bar="||."
+        ((mem_percent >= 30)) && mem_bar="|||"
 
         if ((mem_percent >= 90)); then
             mem_color="31"
@@ -78,32 +79,38 @@ system_stats_monitor() {
             mem_color="32"
         fi
 
-        printf " Mem: \e[%sm%-3s\e[0m %3d%% (%4.1fG/%4.1fG) \n" \
-               "$mem_color" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
+        printf " Mem: \e[%sm%-3s\e[0m %3d%% (%4.1fG/%4.1fG) \n" "$mem_color" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
         echo -e "=============================================================="
 
         # ──────────────────────────────────────────────────────────
         if command -v tachyon-validator &>/dev/null; then
             validator_data=$(timeout 3 tachyon-validator --ledger "$HOME/x1/ledger" monitor 2>/dev/null)
             current_slot=$(echo "$validator_data" | grep -o "Processed Slot: [0-9]*" | awk '{print $3}' | head -n 1)
+            tx_count=$(echo "$validator_data" | grep -o "Transactions: [0-9]*" | awk '{print $2}' | head -n 1)
 
-            if [[ -n "$current_slot" && "$current_slot" -gt 0 ]]; then
+            if [[ -n "$current_slot" && "$current_slot" -gt 0 && -n "$tx_count" ]]; then
                 current_time=$(date +%s)
                 time_diff=$((current_time - last_time))
                 slot_diff=$((current_slot - last_slot))
+                tx_diff=$((tx_count - last_tx_count))
 
                 if ((time_diff > 0)); then
                     blocks_per_sec=$(echo "scale=2; $slot_diff / ($time_diff + 1)" | bc 2>/dev/null || echo "N/A")
+                    tps=$(echo "scale=2; $tx_diff / ($time_diff + 1)" | bc 2>/dev/null || echo "N/A")
                 else
                     blocks_per_sec=0
+                    tps=0
                 fi
 
                 last_slot=$current_slot
                 last_time=$current_time
+                last_tx_count=$tx_count
 
-                printf " X1 Performance Blocks/sec: \e[32m%-6s\e[0m (Slot: %s)\n" "$blocks_per_sec" "$current_slot"
+                printf " Blocks/sec: \e[32m%-6s\e[0m (Slot: %s)\n" "$blocks_per_sec" "$current_slot"
+                printf " Transactions Per Second: \e[32m%-6s\e[0m \n" "$tps"
             else
-                echo -e " X1 Performance: \e[90mNo data available\e[0m"
+                echo -e " Blocks/sec: \e[90mNo data available\e[0m"
+                echo -e " Transactions Per Second: \e[90mNo data available\e[0m"
             fi
             echo -e "=============================================================="
         fi
@@ -112,7 +119,7 @@ system_stats_monitor() {
         echo -e "\n CPU Cores Utilization:"
 
         num_cpus=$(nproc)
-        mid=$((num_cpus / 2))  # Split into 2 columns
+        mid=$((num_cpus / 2))
 
         for i in $(seq 0 $((mid - 1))); do
             read -r cpu user nice system idle rest <<< "$(grep "cpu$i" /proc/stat)"
@@ -124,12 +131,9 @@ system_stats_monitor() {
             prev_total["$i"]=$curr_total
             prev_idle["$i"]=$idle
 
-            # CPU Bar (3 Levels: |.., ||., |||)
             cpu_bar="|.."
-            ((usage >= 5))  && cpu_bar="..."
-            ((usage >= 30)) && cpu_bar="|.."
-            ((usage >= 70)) && cpu_bar="||."
-            ((usage >= 90)) && cpu_bar="|||"
+            ((usage >= 5))  && cpu_bar="||."
+            ((usage >= 30)) && cpu_bar="|||"
 
             j=$((i + mid))
             read -r cpu2 user2 nice2 system2 idle2 rest2 <<< "$(grep "cpu$j" /proc/stat)"
@@ -142,10 +146,8 @@ system_stats_monitor() {
             prev_idle["$j"]=$idle2
 
             cpu_bar2="|.."
-            ((usage2 >= 5))  && cpu_bar2="..."
-            ((usage2 >= 30)) && cpu_bar2="|.."
-            ((usage2 >= 70)) && cpu_bar2="||."
-            ((usage2 >= 90)) && cpu_bar2="|||"
+            ((usage2 >= 5))  && cpu_bar2="||."
+            ((usage2 >= 30)) && cpu_bar2="|||"
 
             printf " Core %02d: \e[32m%-3s\e[0m %3d%%   Core %02d: \e[32m%-3s\e[0m %3d%%\n" "$i" "$cpu_bar" "$usage" "$j" "$cpu_bar2" "$usage2"
         done
