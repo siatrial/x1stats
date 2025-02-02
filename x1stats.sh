@@ -71,15 +71,7 @@ system_stats_monitor() {
         ((mem_percent >= 5))  && mem_bar="||."
         ((mem_percent >= 30)) && mem_bar="|||"
 
-        if ((mem_percent >= 90)); then
-            mem_color="31"
-        elif ((mem_percent >= 70)); then
-            mem_color="33"
-        else
-            mem_color="32"
-        fi
-
-        printf " Mem: \e[%sm%-3s\e[0m %3d%% (%4.1fG/%4.1fG) \n" "$mem_color" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
+        printf " Mem: %-3s %3d%% (%4.1fG/%4.1fG) \n" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
         echo -e "=============================================================="
 
         # ──────────────────────────────────────────────────────────
@@ -107,10 +99,10 @@ system_stats_monitor() {
                 last_tx_count=$tx_count
 
                 printf " Blocks/sec: \e[32m%-6s\e[0m (Slot: %s)\n" "$blocks_per_sec" "$current_slot"
-                printf " Transactions Per Second: \e[32m%-6s\e[0m \n" "$tps"
+                printf " TPS: \e[32m%-6s\e[0m \n" "$tps"
             else
                 echo -e " Blocks/sec: \e[90mNo data available\e[0m"
-                echo -e " Transactions Per Second: \e[90mNo data available\e[0m"
+                echo -e " TPS: \e[90mNo data available\e[0m"
             fi
             echo -e "=============================================================="
         fi
@@ -132,9 +124,11 @@ system_stats_monitor() {
             prev_idle["$i"]=$idle
 
             cpu_bar="|.."
-            ((usage >= 5))  && cpu_bar="||."
-            ((usage >= 30)) && cpu_bar="|||"
-
+            ((usage >= 5))  && cpu_bar="..."
+            ((usage >= 30)) && cpu_bar="|.."
+            ((usage >= 50)) && cpu_bar="||."
+            ((usage >= 85)) && cpu_bar="|||"
+            
             j=$((i + mid))
             read -r cpu2 user2 nice2 system2 idle2 rest2 <<< "$(grep "cpu$j" /proc/stat)"
             curr_total2=$((user2 + nice2 + system2 + idle2))
@@ -146,10 +140,12 @@ system_stats_monitor() {
             prev_idle["$j"]=$idle2
 
             cpu_bar2="|.."
-            ((usage2 >= 5))  && cpu_bar2="||."
-            ((usage2 >= 30)) && cpu_bar2="|||"
-
-            printf " Core %02d: \e[32m%-3s\e[0m %3d%%   Core %02d: \e[32m%-3s\e[0m %3d%%\n" "$i" "$cpu_bar" "$usage" "$j" "$cpu_bar2" "$usage2"
+            ((usage2 >= 5))  && cpu_bar2="..."
+            ((usage2 >= 30)) && cpu_bar2="|.."
+            ((usage2 >= 50)) && cpu_bar2="||."
+            ((usage2 >= 85)) && cpu_bar2="|||"
+            
+            printf " Core %02d: %-3s %3d%%   Core %02d: %-3s %3d%%\n" "$i" "$cpu_bar" "$usage" "$j" "$cpu_bar2" "$usage2"
         done
 
         echo -e "=============================================================="
