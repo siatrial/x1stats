@@ -68,8 +68,10 @@ system_stats_monitor() {
 
         # Memory Bar (|.., ||., |||)
         mem_bar="|.."
-        ((mem_percent >= 5))  && mem_bar="||."
-        ((mem_percent >= 30)) && mem_bar="|||"
+        ((mem_percent >= 3))  && mem_bar="..."
+        ((mem_percent >= 5))  && mem_bar="|.."
+        ((mem_percent >= 40)) && mem_bar="||."
+        ((mem_percent >= 70)) && mem_bar="|||"        
 
         printf " Mem: %-3s %3d%% (%4.1fG/%4.1fG) \n" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
         echo -e "=============================================================="
@@ -124,9 +126,9 @@ system_stats_monitor() {
             prev_idle["$i"]=$idle
 
             cpu_bar="|.."
-            ((usage >= 5))  && cpu_bar="..."
-            ((usage >= 30)) && cpu_bar="|.."
-            ((usage >= 50)) && cpu_bar="||."
+            ((usage >= 3))  && cpu_bar="..."
+            ((usage >= 20)) && cpu_bar="|.."
+            ((usage >= 40)) && cpu_bar="||."
             ((usage >= 85)) && cpu_bar="|||"
             
             j=$((i + mid))
@@ -140,9 +142,9 @@ system_stats_monitor() {
             prev_idle["$j"]=$idle2
 
             cpu_bar2="|.."
-            ((usage2 >= 5))  && cpu_bar2="..."
-            ((usage2 >= 30)) && cpu_bar2="|.."
-            ((usage2 >= 50)) && cpu_bar2="||."
+            ((usage2 >= 3))  && cpu_bar2="..."
+            ((usage2 >= 20)) && cpu_bar2="|.."
+            ((usage2 >= 40)) && cpu_bar2="||."
             ((usage2 >= 85)) && cpu_bar2="|||"
             
             printf " Core %02d: %-3s %3d%%   Core %02d: %-3s %3d%%\n" "$i" "$cpu_bar" "$usage" "$j" "$cpu_bar2" "$usage2"
