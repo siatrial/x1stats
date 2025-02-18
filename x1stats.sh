@@ -66,14 +66,17 @@ system_stats_monitor() {
             total_gb="$((total / 1073741824))"
         fi
 
-        # Memory Bar (|.., ||., |||)
-        mem_bar="|.."
-        ((mem_percent >= 3))  && mem_bar="..."
-        ((mem_percent >= 5))  && mem_bar="|.."
-        ((mem_percent >= 40)) && mem_bar="||."
-        ((mem_percent >= 70)) && mem_bar="|||"        
+        # Memory Bar (10 |||||||||| long)
+        mem_bar=""
+        for ((i=0; i<10; i++)); do
+            if ((mem_percent > i * 10)); then
+                mem_bar+="||"
+            else
+                mem_bar+=".."
+            fi
+        done
 
-        printf " Mem: %-3s %3d%% (%4.1fG/%4.1fG) \n" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
+        printf " Mem: %-20s %3d%% (%4.1fG/%4.1fG) \n" "$mem_bar" "$mem_percent" "$used_gb" "$total_gb"
         echo -e "=============================================================="
 
         # ──────────────────────────────────────────────────────────
@@ -125,11 +128,15 @@ system_stats_monitor() {
             prev_total["$i"]=$curr_total
             prev_idle["$i"]=$idle
 
-            cpu_bar="|.."
-            ((usage >= 3))  && cpu_bar="..."
-            ((usage >= 20)) && cpu_bar="|.."
-            ((usage >= 40)) && cpu_bar="||."
-            ((usage >= 85)) && cpu_bar="|||"
+            # CPU Bar (5 ||||| long)
+            cpu_bar=""
+            for ((j=0; j<5; j++)); do
+                if ((usage > j * 20)); then
+                    cpu_bar+="|"
+                else
+                    cpu_bar+="."
+                fi
+            done
             
             j=$((i + mid))
             read -r cpu2 user2 nice2 system2 idle2 rest2 <<< "$(grep "cpu$j" /proc/stat)"
@@ -141,13 +148,17 @@ system_stats_monitor() {
             prev_total["$j"]=$curr_total2
             prev_idle["$j"]=$idle2
 
-            cpu_bar2="|.."
-            ((usage2 >= 3))  && cpu_bar2="..."
-            ((usage2 >= 20)) && cpu_bar2="|.."
-            ((usage2 >= 40)) && cpu_bar2="||."
-            ((usage2 >= 85)) && cpu_bar2="|||"
+            # CPU Bar for the second core (5 ||||| long)
+            cpu_bar2=""
+            for ((k=0; k<5; k++)); do
+                if ((usage2 > k * 20)); then
+                    cpu_bar2+="|"
+                else
+                    cpu_bar2+="."
+                fi
+            done
             
-            printf " Core %02d: %-3s %3d%%   Core %02d: %-3s %3d%%\n" "$i" "$cpu_bar" "$usage" "$j" "$cpu_bar2" "$usage2"
+            printf " Core %02d: %-5s %3d%%   Core %02d: %-5s %3d%%\n" "$i" "$cpu_bar" "$usage" "$j" "$cpu_bar2" "$usage2"
         done
 
         echo -e "=============================================================="
